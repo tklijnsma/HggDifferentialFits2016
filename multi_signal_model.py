@@ -13,6 +13,8 @@ import argparse
 import tempfile
 from time import strftime
 
+import ROOT
+
 from getCommaSeparatedListOfVariablesToFreeze import getCommaSeparatedListOfVariablesToFreeze
 
 
@@ -24,15 +26,18 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument( '--clean', action='store_true', help='boolean')
 parser.add_argument( '--test', action='store_true', help='boolean')
+parser.add_argument( '--printCommands', action='store_true', help='boolean')
 parser.add_argument( '--local', action='store_true', help='boolean')
+
 parser.add_argument( '--moreMemory', action='store_true', help='boolean')
+parser.add_argument( '--freezeAllPdfVars', action='store_true', help='boolean')
 
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument( '--doT2WS', action='store_true', help='boolean')
 group.add_argument( '--dobestfit', action='store_true', help='boolean')
 group.add_argument( '--dotoys', action='store_true', help='boolean')
 
-parser.add_argument( '--nToys', type=int, help='default string' )
+parser.add_argument( '--nToys', type=int, default=1, help='default string' )
 parser.add_argument( '--startseed', type=int, help='default string' )
 
 
@@ -40,6 +45,8 @@ parser.add_argument( '--startseed', type=int, help='default string' )
 group2 = parser.add_mutually_exclusive_group(required=True)
 group2.add_argument( '--dopt', action='store_true', help='boolean')
 group2.add_argument( '--donjets', action='store_true', help='boolean')
+
+parser.add_argument( '--newbins', action='store_true', default=False, help='boolean')
 
 args = parser.parse_args()
 
@@ -68,6 +75,13 @@ if args.clean:
     sys.exit()
 
 
+# Determine platform
+if 'lxplus' in os.environ['HOSTNAME']:
+    host = 'lxplus'
+elif 't3ui' in os.environ['HOSTNAME']:
+    host = 'psi'
+else:
+    host = 'unknown'
 
 
 def main():
@@ -79,53 +93,102 @@ def main():
 
     if args.dopt:
 
-        chapter( 'Setting paths and variables for pt' )
+        if not args.newbins:
 
-        nBins = 7
-        nCats = 3
+            chapter( 'Setting paths and variables for pt (old binning)' )
 
-        ptDir = join( baseDir, 'pt_moriond17' )
+            nBins = 7
+            nCats = 3
 
-        wsDir = join( baseDir, 'workspaces{0}'.format(datestr) )
-        if not isdir( wsDir ): os.makedirs(wsDir)
+            ptDir = join( baseDir, 'pt_moriond17_Mar01_oldBins' )
+            wsDir = join( baseDir, 'workspaces{0}'.format(datestr) )
+            if not isdir( wsDir ): os.makedirs(wsDir)
 
-        DataCard            = join( ptDir, 'Datacard_13TeV_differential_pT_moriond17.txt' )
-        regularizedDataCard = join( ptDir, 'Datacard_13TeV_differential_pT_moriond17_regularization.txt' )
+            DataCard            = join( ptDir, 'Datacard_13TeV_differential_pT_moriond17_reminiaod_oldBins.txt' )
+            regularizedDataCard = join( ptDir, 'Datacard_13TeV_differential_pT_moriond17_reminiaod_oldBins_regularized.txt' )
 
-        genDataCardRoot         = join( wsDir, basename(DataCard.replace( '.txt', '_genMuFit.root' )) )
-        recoDataCardRoot        = join( wsDir, basename(DataCard.replace( '.txt', '_recoMuFit.root' )) )
-        reguralizedDataCardRoot = join( wsDir, basename(regularizedDataCard.replace( '.txt', '.root' )) )
+            genDataCardRoot         = join( wsDir, basename(DataCard.replace( '.txt', '_genMuFit.root' )) )
+            recoDataCardRoot        = join( wsDir, basename(DataCard.replace( '.txt', '_recoMuFit.root' )) )
+            reguralizedDataCardRoot = join( wsDir, basename(regularizedDataCard.replace( '.txt', '.root' )) )
 
-        genPostFitRoot         = genDataCardRoot.replace( '.root', '_postfit.root' )
-        recoPostFitRoot        = recoDataCardRoot.replace( '.root', '_postfit.root' )
-        reguralizedPostFitRoot = reguralizedDataCardRoot.replace( '.root', '_postfit.root' )
+            genPostFitRoot         = genDataCardRoot.replace( '.root', '_postfit.root' )
+            recoPostFitRoot        = recoDataCardRoot.replace( '.root', '_postfit.root' )
+            reguralizedPostFitRoot = reguralizedDataCardRoot.replace( '.root', '_postfit.root' )
 
-        print 'nBins                    = {0}'.format( nBins )
-        print 'nCats                    = {0}'.format( nCats )
-        print 'ptDir                    = {0}'.format( ptDir )
-        print 'wsDir                    = {0}'.format( wsDir )
-        print 'DataCard                 = {0}'.format( DataCard )
-        print 'regularizedDataCard      = {0}'.format( regularizedDataCard )
-        print 'genDataCardRoot          = {0}'.format( genDataCardRoot )
-        print 'recoDataCardRoot         = {0}'.format( recoDataCardRoot )
-        print 'reguralizedDataCardRoot  = {0}'.format( reguralizedDataCardRoot )
-        print 'genPostFitRoot           = {0}'.format( genPostFitRoot )
-        print 'recoPostFitRoot          = {0}'.format( recoPostFitRoot )
-        print 'reguralizedPostFitRoot   = {0}'.format( reguralizedPostFitRoot )
+            print 'nBins                    = {0}'.format( nBins )
+            print 'nCats                    = {0}'.format( nCats )
+            print 'ptDir                    = {0}'.format( ptDir )
+            print 'wsDir                    = {0}'.format( wsDir )
+            print 'DataCard                 = {0}'.format( DataCard )
+            print 'regularizedDataCard      = {0}'.format( regularizedDataCard )
+            print 'genDataCardRoot          = {0}'.format( genDataCardRoot )
+            print 'recoDataCardRoot         = {0}'.format( recoDataCardRoot )
+            print 'reguralizedDataCardRoot  = {0}'.format( reguralizedDataCardRoot )
+            print 'genPostFitRoot           = {0}'.format( genPostFitRoot )
+            print 'recoPostFitRoot          = {0}'.format( recoPostFitRoot )
+            print 'reguralizedPostFitRoot   = {0}'.format( reguralizedPostFitRoot )
 
-        process(
-            nBins,
-            nCats,
-            DataCard,
-            regularizedDataCard,
-            genDataCardRoot,
-            recoDataCardRoot,
-            reguralizedDataCardRoot,
-            genPostFitRoot,
-            recoPostFitRoot,
-            reguralizedPostFitRoot,
-            )
+            process(
+                nBins,
+                nCats,
+                DataCard,
+                regularizedDataCard,
+                genDataCardRoot,
+                recoDataCardRoot,
+                reguralizedDataCardRoot,
+                genPostFitRoot,
+                recoPostFitRoot,
+                reguralizedPostFitRoot,
+                )
 
+
+        else:
+
+            chapter( 'Setting paths and variables for pt with extra bin' )
+
+            nBins = 8
+            nCats = 3
+
+            ptDir = join( baseDir, 'pt_moriond17_Mar01_ExtraBin' )
+            wsDir = join( baseDir, 'workspaces{0}'.format(datestr) )
+            if not isdir( wsDir ): os.makedirs(wsDir)
+
+            DataCard            = join( ptDir, 'Datacard_13TeV_differential_pT_moriond17_reminiaod_extrabin.txt' )
+            regularizedDataCard = join( ptDir, 'Datacard_13TeV_differential_pT_moriond17_reminiaod_extrabin_regularized.txt' )
+
+            genDataCardRoot         = join( wsDir, basename(DataCard.replace( '.txt', '_genMuFit.root' )) )
+            recoDataCardRoot        = join( wsDir, basename(DataCard.replace( '.txt', '_recoMuFit.root' )) )
+            reguralizedDataCardRoot = join( wsDir, basename(regularizedDataCard.replace( '.txt', '.root' )) )
+
+            genPostFitRoot         = genDataCardRoot.replace( '.root', '_postfit.root' )
+            recoPostFitRoot        = recoDataCardRoot.replace( '.root', '_postfit.root' )
+            reguralizedPostFitRoot = reguralizedDataCardRoot.replace( '.root', '_postfit.root' )
+
+            print 'nBins                    = {0}'.format( nBins )
+            print 'nCats                    = {0}'.format( nCats )
+            print 'ptDir                    = {0}'.format( ptDir )
+            print 'wsDir                    = {0}'.format( wsDir )
+            print 'DataCard                 = {0}'.format( DataCard )
+            print 'regularizedDataCard      = {0}'.format( regularizedDataCard )
+            print 'genDataCardRoot          = {0}'.format( genDataCardRoot )
+            print 'recoDataCardRoot         = {0}'.format( recoDataCardRoot )
+            print 'reguralizedDataCardRoot  = {0}'.format( reguralizedDataCardRoot )
+            print 'genPostFitRoot           = {0}'.format( genPostFitRoot )
+            print 'recoPostFitRoot          = {0}'.format( recoPostFitRoot )
+            print 'reguralizedPostFitRoot   = {0}'.format( reguralizedPostFitRoot )
+
+            process(
+                nBins,
+                nCats,
+                DataCard,
+                regularizedDataCard,
+                genDataCardRoot,
+                recoDataCardRoot,
+                reguralizedDataCardRoot,
+                genPostFitRoot,
+                recoPostFitRoot,
+                reguralizedPostFitRoot,
+                )
 
     ########################################
     # Setting paths and variables for pt
@@ -138,13 +201,13 @@ def main():
         nBins = 5
         nCats = 3
 
-        ptDir = join( baseDir, 'nJets_moriond17' )
+        nJetsDir = join( baseDir, 'nJets_moriond17_Mar01' )
 
         wsDir = join( baseDir, 'workspaces{0}'.format(datestr) )
         if not isdir( wsDir ): os.makedirs(wsDir)
 
-        DataCard            = join( ptDir, 'Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod.txt' )
-        regularizedDataCard = join( ptDir, 'DDatacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod_regularized.txt' )
+        DataCard            = join( nJetsDir, 'Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod.txt' )
+        regularizedDataCard = join( nJetsDir, 'Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod_regularized.txt' )
 
         genDataCardRoot         = join( wsDir, basename(DataCard.replace( '.txt', '_genMuFit.root' )) )
         recoDataCardRoot        = join( wsDir, basename(DataCard.replace( '.txt', '_recoMuFit.root' )) )
@@ -156,7 +219,7 @@ def main():
 
         print 'nBins                    = {0}'.format( nBins )
         print 'nCats                    = {0}'.format( nCats )
-        print 'ptDir                    = {0}'.format( ptDir )
+        print 'nJetsDir                    = {0}'.format( nJetsDir )
         print 'wsDir                    = {0}'.format( wsDir )
         print 'DataCard                 = {0}'.format( DataCard )
         print 'regularizedDataCard      = {0}'.format( regularizedDataCard )
@@ -295,17 +358,19 @@ def runJob(
     nCats,
     ):
 
-    if not isdir( jobDir ): os.makedirs( jobDir )
-    tmpdir = tempfile.mkdtemp( prefix='tmptoy_seed{0}_'.format(seed), dir=jobDir )
-    tmpdir = abspath( tmpdir )
+    if not args.test and not args.printCommands:
+        if not isdir( jobDir ): os.makedirs( jobDir )
+        tmpdir = tempfile.mkdtemp( prefix='tmptoy_seed{0}_'.format(seed), dir=jobDir )
+        tmpdir = abspath( tmpdir )
 
-    print '\nEntering {0}'.format( tmpdir )
-    os.chdir( tmpdir )
+        print '\nEntering {0}'.format( tmpdir )
+        os.chdir( tmpdir )
 
-    # Get freezeVars; requires going back to baseDir temporarily
-    os.chdir( baseDir )
-    freezeVars = getCommaSeparatedListOfVariablesToFreeze( genPostFitRoot, freezeAll=False )
-    os.chdir( tmpdir )
+        # # Get freezeVars; requires going back to baseDir temporarily
+        # os.chdir( baseDir )
+        # freezeVars = getCommaSeparatedListOfVariablesToFreeze( genPostFitRoot, freezeAll=args.freezeAllPdfVars )
+        # os.chdir( tmpdir )
+
 
     # Make the toy command
     toycmd = ''
@@ -324,7 +389,7 @@ def runJob(
     toycmd += " --setPhysicsModelParameters {0} ".format( getPhysicsModelParameterString(nBins,nCats) )
 
     toysFile = abspath( 'higgsCombinegeneratedToy.GenerateOnly.mH125.{0}.root'.format( seed ) )
-    executeCommand( toycmd )
+
 
     # Make the bestfit command
     bestfitcmd = ''
@@ -349,8 +414,13 @@ def runJob(
     bestfitcmd += " --saveWorkspace  "
     bestfitcmd += " --minimizerStrategy 2 "
 
-    bestfitToyFile = 'higgsCombinebestfitToy.MultiDimFit.mH125.{0}.root'.format( seed )
+    # bestfitToyFile = 'higgsCombinebestfitToy.MultiDimFit.mH125.{0}.root'.format( seed )
+    bestfitToyFile = 'higgsCombinebestfitToy.MultiDimFit.mH125.root'
 
+
+    freezepdfvarscmd =  'python '
+    freezepdfvarscmd += ' {0} '.format( join( baseDir, 'getCommaSeparatedListOfVariablesToFreeze.py' ) )
+    freezepdfvarscmd += ' {0} '.format( bestfitToyFile )
 
     covmatcmd = ''
     covmatcmd += " combine "
@@ -358,6 +428,7 @@ def runJob(
     covmatcmd += " -M MultiDimFit "
     covmatcmd += " -n covmat "
     covmatcmd += " -m 125 "
+    covmatcmd += " --saveWorkspace  "
 
     covmatcmd += " --dataset {0}:toys/toy_1 ".format( toysFile )
     # covmatcmd += " -t 1 "
@@ -366,51 +437,79 @@ def runJob(
     covmatcmd += " --algo none "
     covmatcmd += " --snapshotName MultiDimFit "
     covmatcmd += " --setPhysicsModelParameters {0} ".format( getPhysicsModelParameterString(nBins,nCats) )
-    covmatcmd += " --freezeNuisances {0} ".format( freezeVars )
+    covmatcmd += " --freezeNuisances \"$({0})\" ".format( freezepdfvarscmd )
     covmatcmd += " -v 2"
 
-    # print 'Now doing ', covmatcmd
-    # 
 
+    if args.printCommands:
+        print '\nToy generation command:'
+        print toycmd
+        print '\nBest fit command:'
+        print bestfitcmd
+        print '\nCorrelation matrix command:'
+        print covmatcmd
+        return
 
 
     shfile = 'runBestFitOnToy.sh'
+
     with open( shfile, 'w' ) as shfp:
 
         w = lambda text: shfp.write( text + ' \n' )
 
-        w( '#$ -q all.q' )
-        # w( '#$ -o {0}'.format( tmpdir ) )
-        # w( '#$ -e {0}'.format( tmpdir ) )
-        w( 'cd {0}'.format(tmpdir) )
-        w( '#$ -cwd' )
-        w( 'OUTFILES=""' )
 
-        w( 'JOBDIR=/scratch/`whoami`/job_${JOB_ID}' )
-        w( 'mkdir -p $JOBDIR' )
-        w( 'echo "JOBDIR = $JOBDIR"' )
-        w( 'echo "HOSTNAME = $HOSTNAME"' )
+        if host == 'psi' or host == 'unknown':
 
-        w( 'source $VO_CMS_SW_DIR/cmsset_default.sh' )
-        w( 'cd {0}'.format(baseDir) )
-        w( 'eval `scramv1 runtime -sh`' )
-        w( 'cd $JOBDIR' )
+            w( '#$ -q all.q' )
+            # w( '#$ -o {0}'.format( tmpdir ) )
+            # w( '#$ -e {0}'.format( tmpdir ) )
+            w( 'cd {0}'.format(tmpdir) )
+            w( '#$ -cwd' )
+            w( 'OUTFILES=""' )
+            w( 'JOBDIR=/scratch/`whoami`/job_${JOB_ID}' )
+            w( 'mkdir -p $JOBDIR' )
+            w( 'echo "JOBDIR = $JOBDIR"' )
+            w( 'echo "HOSTNAME = $HOSTNAME"' )
 
-        w( bestfitcmd )
+            w( 'source $VO_CMS_SW_DIR/cmsset_default.sh' )
+            w( 'cd {0}'.format(baseDir) )
+            w( 'eval `scramv1 runtime -sh`' )
+            w( 'cd $JOBDIR' )
 
 
-        w( 'cp {0} {1}'.format( bestfitToyFile, join( tmpdir, bestfitToyFile ) ) )
+            w( toycmd )
+            w( bestfitcmd )
+            w( covmatcmd )
+
+            w( 'cp {0} {1}'.format( bestfitToyFile, join( tmpdir, bestfitToyFile ) ) )
+
+
+        elif host == 'lxplus':
+
+            w( 'cd {0}'.format( baseDir ) )
+            w( 'eval `scramv1 runtime -sh`' )
+            w( 'cd {0}'.format( tmpdir ) )
+            w( toycmd )
+            w( bestfitcmd )
+            w( covmatcmd )
+
+
+    if host == 'lxplus':
+        os.system( 'chmod 777 {0}'.format(shfile) )
 
 
     if not args.local:
-        if args.moreMemory:
-            executeCommand( 'qsub -l h_vmem=4g {0}'.format( shfile ) )
-        else:
-            executeCommand( 'qsub {0}'.format( shfile ) )
+        if host == 'psi':
+            if args.moreMemory:
+                executeCommand( 'qsub -l h_vmem=4g {0}'.format( shfile ) )
+            else:
+                executeCommand( 'qsub {0}'.format( shfile ) )
+        elif host == 'lxplus':
+            executeCommand( 'bsub -q 1nh {0}'.format( shfile ) )
     else:
+        executeCommand( toycmd )
         executeCommand( bestfitcmd )
         executeCommand( covmatcmd )
-
 
 
 
@@ -422,6 +521,7 @@ def bestfit(
     postFitRoot,
     nBins,
     nCats,
+    docovmat=True,
     ):
 
 
@@ -443,8 +543,38 @@ def bestfit(
     executeCommand( bestfitcmd )
     
 
+    if docovmat:
+
+        freezeVars = getCommaSeparatedListOfVariablesToFreeze( postFitRoot, freezeAll=False )
+
+        covmatRoot = dataCardRoot.replace( '.root', '_covmat.root' )
+        covmatWSRoot = dataCardRoot.replace( '.root', '_covmatWS.root' )
+
+        covmatcmd = ''
+        covmatcmd += " combine "
+        covmatcmd += " {0} ".format( postFitRoot )
+        covmatcmd += " -M MultiDimFit "
+        covmatcmd += " -n covmat "
+        covmatcmd += " -m 125 "
+        covmatcmd += " --saveWorkspace  "
 
 
+        covmatcmd += " -t -1 "
+        covmatcmd += " --toysFrequentist --bypassFrequentistFit "
+
+        covmatcmd += " --algo none "
+        covmatcmd += " --snapshotName MultiDimFit "
+        covmatcmd += " --setPhysicsModelParameters {0} ".format( getPhysicsModelParameterString(nBins,nCats) )
+        covmatcmd += " --freezeNuisances {0} ".format( freezeVars )
+        covmatcmd += " -v 2"
+        covmatcmd += " ; mv COVMATISHERE.root {0} ".format( covmatRoot )
+        covmatcmd += " ; mv higgsCombinecovmat.MultiDimFit.mH125.root {0} ".format( covmatWSRoot )
+
+        executeCommand( covmatcmd )
+
+
+    printWSVars( postFitRoot, verbose=True )
+    printWSVars( covmatWSRoot, verbose=True )
 
 
 
@@ -561,6 +691,55 @@ def executeCommand( cmd, verbose=True ):
         os.system( cmd )
     else:
         print '\nTESTMODE: {0}'.format(cmd)
+
+
+
+def printWSVars( wsFile, verbose=True ):
+    
+    wsFp = ROOT.TFile.Open( wsFile )
+    w = wsFp.Get('w')
+
+    try:
+        w.loadSnapshot('MultiDimFit')
+    except:
+        print 'Snapshot loading failed'
+        return
+
+
+    variables = []
+
+    varArgSet = ROOT.RooArgList( w.allVars() )
+    for i in xrange(varArgSet.getSize()):
+        variables.append(( varArgSet[i].GetName(), varArgSet[i].getVal(), varArgSet[i].getError() ))
+
+        # variable = varArgSet[i]
+        # name = variable.GetName()
+        # match = re.search( r'r\d', name )
+        # if match:
+        #     print '{0:20} = {1:20}     +-  {2}'.format( name, variable.getVal(), variable.getError() )
+
+
+    catArgSet = ROOT.RooArgList( w.allCats() )
+    for i in xrange(catArgSet.getSize()):
+        variables.append(( catArgSet[i].GetName(), catArgSet[i].getIndex(), None ))
+
+
+    variables.sort()
+    variables.sort( key=lambda i: -2 * i[0].startswith('r') + -1*i[0].startswith('pdfindex') )
+
+    outFile = wsFile.replace( '.root', '_variablePrintout.txt' )
+    with open( outFile, 'w' ) as outFp:
+        for name, val, err in variables:
+
+            if not err:
+                printstr = '{0} = {1}'.format( name, val )
+            else:
+                printstr = '{0} = {1}   +- {2}'.format( name, val, err )
+
+            outFp.write( printstr + '\n' )
+            if verbose: print printstr
+
+
 
 
 ########################################
