@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 import ROOT
 ROOT.gROOT.SetBatch(True)
-# ROOT.gROOT.ProcessLine("gErrorIgnoreLevel = kError;")
+ROOT.gROOT.ProcessLine("gErrorIgnoreLevel = kError;")
 ROOT.gStyle.SetOptStat(0)
 # ROOT.gSystem.Load('/mnt/t3nfs01/data01/shome/tklijnsm/Combination/RooUnfold-1.1.1/libRooUnfold')
 
@@ -90,6 +90,7 @@ class RegResult():
     def get_k( self ):
 
         d_TH1D = self.OneDimNumpy_to_TH1D( self.d )
+        d_TH1D.SetTitle( 'log|d|' )
 
         fitFunction = ROOT.TF1(
             'dfit',
@@ -98,16 +99,31 @@ class RegResult():
             )
         ROOT.SetOwnership( fitFunction, False )
 
+        # p0 =   49.1692586759  |  p1 =   1.01285080535  |  p2 =  0.181299881953
+        # p0 =   95.5584879401  |  p1 =   1.61487162565  |  p2 =  0.162016329543  |  k =   3.95065251443
+
+        fitFunction.SetParameter( 0, 30. )
+        fitFunction.SetParameter( 1, 2. )
+        fitFunction.SetParameter( 2, 0.1 )
+
         d_TH1D.Fit( fitFunction, 'q' )
 
         p0 = fitFunction.GetParameter(0)
         p1 = fitFunction.GetParameter(1)
         p2 = fitFunction.GetParameter(2)
 
-        threshold = 2. * p2
-        xThreshold = -log(( threshold - p2 )/p0)/p1
+        try:
+            threshold = 2. * p2
+            xThreshold = -log(( threshold - p2 )/p0)/p1
+        except ValueError:
+            xThreshold = -1
 
-        return xThreshold
+        if p1 < 0.:
+            xThreshold = -1
+
+        print 'p0 = {0:15}  |  p1 = {1:15}  |  p2 = {2:15}  |  k = {3:15}'.format( p0, p1, p2, xThreshold )
+
+        return fitFunction, xThreshold
 
 
     def plot_d( self ):
@@ -122,72 +138,36 @@ class RegResult():
         self.c.Update()
         
         
-        print '\n\nDoing fit with exponential on d plot'
-
-        fitFunction = ROOT.TF1(
-            'dfit',
-            '[0]*exp(-[1]*x) + [2]',
-            0., float( self.nCats * self.nBins )
-            )
-        ROOT.SetOwnership( fitFunction, False )
-
-        d_TH1D.Fit( fitFunction )
-
+        fitFunction, xThreshold = self.get_k()
+        self.k = xThreshold
 
         fitFunction.SetLineColor(9)
         fitFunction.SetLineWidth(3)
         fitFunction.Draw('SAMEL')
 
 
-
-
-        p0 = fitFunction.GetParameter(0)
-        p1 = fitFunction.GetParameter(1)
-        p2 = fitFunction.GetParameter(2)
-
-
-        # expFunction = ROOT.TF1(
-        #     'expfn',
-        #     '[0]*exp(-[1]*x)',
-        #     0., float( self.nCats * self.nBins )
-        #     )
-        # ROOT.SetOwnership( expFunction, False )
-        # expFunction.SetParameter( 0, p0 )
-        # expFunction.SetParameter( 1, p1 )
-        # expFunction.Draw('LSAME')
-
-
-        l = ROOT.TLine( 0., p2, self.nCats * self.nBins, p2 )
+        l = ROOT.TLine( 0., fitFunction.GetParameter(2), self.nCats * self.nBins, fitFunction.GetParameter(2) )
         l.SetLineWidth(2)
         l.SetLineColor(2)
         l.Draw()
 
 
         # Checking at which bin we cross certain threshold
-
         self.c.Update()
         self.c.cd()
         yMax = 10**( ROOT.gPad.GetUymax() )
         yMin = 10**( ROOT.gPad.GetUymin() )
 
-        # yMin = 0.
-        # # yMax = 100000.
-        # yMax = d_TH1D.GetYaxis().GetXmax()
-
-        # print 'Drawing line from {0} to {1}'.format( yMin, yMax )
-
-        threshold = 2. * p2
-        xThreshold = -log(( threshold - p2 )/p0)/p1
-
-        lThreshold = ROOT.TLine( xThreshold, yMin,xThreshold, yMax )
-        ROOT.SetOwnership( lThreshold, False )
-        lThreshold.SetLineStyle(2)
-        lThreshold.Draw()
-
+        if xThreshold != -1:
+            lThreshold = ROOT.TLine( xThreshold, yMin,xThreshold, yMax )
+            ROOT.SetOwnership( lThreshold, False )
+            lThreshold.SetLineStyle(2)
+            lThreshold.Draw()
 
         self.Save( 'd' )
         self.c.SetLogy(False)
-        
+
+
 
 
 
