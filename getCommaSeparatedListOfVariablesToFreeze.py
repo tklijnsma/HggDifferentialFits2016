@@ -22,17 +22,17 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument( 'wsFile', type=str, default='default', help='default string' )
-    # parser.add_argument( '--boolean', action='store_true', help='boolean')
+    parser.add_argument( '--freezeAll', action='store_true', help='boolean')
     # parser.add_argument( '--list', metavar='N', type=str, nargs='+', help='list of strings' )
     args = parser.parse_args()
     wsFile = args.wsFile
 
-    print getCommaSeparatedListOfVariablesToFreeze( wsFile )
+    print getCommaSeparatedListOfVariablesToFreeze( wsFile, args.freezeAll )
 
 
 
 
-def getCommaSeparatedListOfVariablesToFreeze( wsFile ):
+def getCommaSeparatedListOfVariablesToFreeze( wsFile, freezeAll=False ):
 
 
     if not os.path.isfile( wsFile ):
@@ -68,7 +68,7 @@ def getCommaSeparatedListOfVariablesToFreeze( wsFile ):
             # Loop over all shapes in the envelope
             for ishape in xrange(pdf.getNumPdfs()):
                 # Freeze all pdf parameters except those from the best fit function
-                if ishape == pdf.getCurrentIndex(): continue
+                if ishape == pdf.getCurrentIndex() and not freezeAll: continue
                 shape = pdf.getPdf( ishape )
                 observables = ROOT.RooArgList(shape.getObservables( ws.allVars() ))
                 observables = filter(lambda x: not x.startswith('CMS_hgg_mass'), map(lambda x: observables[x].GetName(), xrange(observables.getSize()) ) )

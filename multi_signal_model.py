@@ -304,7 +304,7 @@ def runJob(
 
     # Get freezeVars; requires going back to baseDir temporarily
     os.chdir( baseDir )
-    freezeVars = getCommaSeparatedListOfVariablesToFreeze( genPostFitRoot )
+    freezeVars = getCommaSeparatedListOfVariablesToFreeze( genPostFitRoot, freezeAll=False )
     os.chdir( tmpdir )
 
     # Make the toy command
@@ -359,7 +359,7 @@ def runJob(
     covmatcmd += " -n covmat "
     covmatcmd += " -m 125 "
 
-    # covmatcmd += " --dataset {0}:toys/toy_1 ".format( toysFile )
+    covmatcmd += " --dataset {0}:toys/toy_1 ".format( toysFile )
     # covmatcmd += " -t 1 "
     # covmatcmd += " --toysFrequentist --bypassFrequentistFit "
 
@@ -397,7 +397,7 @@ def runJob(
         w( 'cd $JOBDIR' )
 
         w( bestfitcmd )
-        
+
 
         w( 'cp {0} {1}'.format( bestfitToyFile, join( tmpdir, bestfitToyFile ) ) )
 
