@@ -42,6 +42,7 @@ class RegResult():
     ROOT.SetOwnership( c, False )
     ROOTCOUNTER = 1000
 
+
     def __init__( self, plotdir = 'plots_{0}'.format(datestr) ):
         self.plotdir = plotdir
         self.SetColorPalette()
@@ -84,6 +85,29 @@ class RegResult():
         # ROOT.gStyle.SetPalette( ROOT.TColor.kLightTemperature )
         ROOT.gStyle.SetPalette( 1 )
 
+
+
+    def get_k( self ):
+
+        d_TH1D = self.OneDimNumpy_to_TH1D( self.d )
+
+        fitFunction = ROOT.TF1(
+            'dfit',
+            '[0]*exp(-[1]*x) + [2]',
+            0., float( self.nCats * self.nBins )
+            )
+        ROOT.SetOwnership( fitFunction, False )
+
+        d_TH1D.Fit( fitFunction, 'q' )
+
+        p0 = fitFunction.GetParameter(0)
+        p1 = fitFunction.GetParameter(1)
+        p2 = fitFunction.GetParameter(2)
+
+        threshold = 2. * p2
+        xThreshold = -log(( threshold - p2 )/p0)/p1
+
+        return xThreshold
 
 
     def plot_d( self ):
@@ -152,7 +176,7 @@ class RegResult():
 
         # print 'Drawing line from {0} to {1}'.format( yMin, yMax )
 
-        threshold = 1.5 * p2
+        threshold = 2. * p2
         xThreshold = -log(( threshold - p2 )/p0)/p1
 
         lThreshold = ROOT.TLine( xThreshold, yMin,xThreshold, yMax )
@@ -179,7 +203,7 @@ class RegResult():
         yMin = 0.
         yMax = 1.5
 
-        base.SetXTitle('p_{T} [GeV]')
+        base.SetXTitle(self.label)
         base.GetXaxis().SetTitleSize(0.04)
         base.GetXaxis().SetTitleOffset(1.07)
         base.SetYTitle('#mu')
@@ -206,22 +230,55 @@ class RegResult():
         H_truth.SetLineColor(1)
 
 
-        H_obs = self.OneDimNumpy_to_TH1D( self.genMuObserved, Binning=self.Binning )
-        for iBin in xrange(self.nBins):
-            H_obs.SetBinError( iBin+1, self.genMuObservedError[iBin] )
-        H_obs.Draw('SAME')
-        H_obs.SetLineStyle(2)
-        H_obs.SetLineWidth(2)
-        H_obs.SetLineColor(2)
+        # H_obs = self.OneDimNumpy_to_TH1D( self.genMuObserved, Binning=self.Binning )
+        # for iBin in xrange(self.nBins):
+        #     H_obs.SetBinError( iBin+1, self.genMuObservedError[iBin] )
+        # H_obs.Draw('SAME')
+        # H_obs.SetLineStyle(2)
+        # H_obs.SetLineWidth(2)
+        # H_obs.SetLineColor(2)
 
+
+        recoMus = numpy.split( self.recoMuObserved, self.nCats )
+        recoMuErrors = numpy.split( self.recoMuObservedError, self.nCats )
+        # print 'recoMus       = ', recoMus
+        # print 'recoMuErrors  = ', recoMuErrors        
 
         leg = ROOT.TLegend( 0.6, 0.1, 0.9, 0.4 )
         leg.AddEntry( H_truth.GetName(), 'Truth' , 'l' )
-        leg.AddEntry( H_obs.GetName(),   'Data'  , 'l' )
+        # leg.AddEntry( H_obs.GetName(),   'Data'  , 'l' )
         leg.Draw()
 
 
+
+
+        ROOT.gStyle.SetEndErrorSize(5)
+
+
+        colors = [ 9, 8, 40, 42 ]
+        for iCat in xrange(self.nCats):
+            recoMu = recoMus[iCat]
+            recoMuError = recoMuErrors[iCat]
+
+            H = self.OneDimNumpy_to_TH1D( recoMu, Binning=self.Binning )
+
+            for iBin in xrange(self.nBins):
+                H.SetBinError( iBin+1, recoMuError[iBin] )
+
+            H.SetLineWidth(2)
+            H.SetLineColor( colors.pop(0) )
+            H.SetMarkerSize(0.6)
+
+            H.Draw('SAMEE1')
+            leg.AddEntry( H.GetName(), 'Cat {0}'.format(iCat), 'l' )
+
+
         self.Save( 'spectra' )
+
+        ROOT.gStyle.SetEndErrorSize()
+
+
+
 
 
 
@@ -239,7 +296,7 @@ class RegResult():
         yMin = 0.
         yMax = 1.5
 
-        base.SetXTitle('p_{T} [GeV]')
+        base.SetXTitle(self.label)
         base.GetXaxis().SetTitleSize(0.04)
         base.GetXaxis().SetTitleOffset(1.07)
         base.SetYTitle('#mu')
