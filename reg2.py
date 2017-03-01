@@ -29,6 +29,8 @@ ROOT.gROOT.SetBatch(True)
 ROOT.gStyle.SetOptStat(0)
 # ROOT.gSystem.Load('/mnt/t3nfs01/data01/shome/tklijnsm/Combination/RooUnfold-1.1.1/libRooUnfold')
 
+Verbosity = 0
+
 
 ########################################
 # Main
@@ -39,18 +41,17 @@ def main():
     baseDir = abspath( join( os.environ['CMSSW_BASE'], 'src' ))
 
 
-    do_pT = False
-    # do_pT = True
-
-    do_pT_regularized = False
-    # do_pT_regularized = True
-
+    # do_pT = False
+    do_pT = True
 
     do_nJets = False
     # do_nJets = True
 
-    do_nJets_regularized = False
-    # do_nJets_regularized = True
+    do_regularized = True
+
+
+    global Verbosity
+    Verbosity = 1
 
 
     if do_pT:
@@ -74,6 +75,7 @@ def main():
         plotdir = 'plots_{0}_pT'.format(datestr)
 
         pT_regResult = doSVDMathematics(
+            'pt',
             nBins,
             nCats,
             Binning,
@@ -84,6 +86,61 @@ def main():
             genCovMatRootFile,
             plotdir,
             )
+
+
+        if do_regularized:
+
+            # ======================================
+            # Get observed genMus
+
+            nBins   = 7
+            nCats   = 3
+            Binning = [ 0., 15., 30., 45., 85., 125., 200., 300. ]
+
+            regularizedGenMuFitDir = abspath(join( baseDir, 'results_Feb27_pt_moriond17_regularized' ))
+
+            regularizedGenMuFitFile   = join( regularizedGenMuFitDir, 'Datacard_13TeV_differential_pT_moriond17_regularization_postfit.root' )
+            regularizedGenMuFitRootFp = ROOT.TFile.Open( regularizedGenMuFitFile )
+            regularizedGenMuFitW      = regularizedGenMuFitRootFp.Get('w')
+            regularizedGenMuFitW.loadSnapshot('MultiDimFit')
+
+            regularizedGenMuObserved      = numpy.zeros( (nBins,1) )
+            regularizedGenMuObservedError = numpy.zeros( (nBins,1) )
+            for iBin in xrange(nBins):
+                r = regularizedGenMuFitW.var( 'r{0}'.format(iBin) )
+                mu    = r.getVal()
+                error = r.getError()
+
+                # Simulate a toy
+                # mu = Smear( mu, error )
+
+                # Add to lists
+                regularizedGenMuObserved[iBin] =  mu
+                regularizedGenMuObservedError[iBin] =  error
+
+
+            oneOverSqrtTau = regularizedGenMuFitW.var('OneOverSqrtTau').getVal()
+            tau = 1./(oneOverSqrtTau**2)
+            if Verbosity>0: print '1/sqrt(tau) = {0}'.format( oneOverSqrtTau )
+
+            if Verbosity>0: print '\nPrinting regularizedGenMuObserved\n', regularizedGenMuObserved
+            if Verbosity>0: print '\nPrinting regularizedGenMuObservedError\n', regularizedGenMuObservedError
+
+            regularizedGenMuFitRootFp.Close()
+
+
+            pT_regResult.compareRegularizedSpectrum( regularizedGenMuObserved, regularizedGenMuObservedError )
+
+            if Verbosity>0: print '\nPrinting pT_regResult.genMuObserved\n', pT_regResult.genMuObserved
+            if Verbosity>0: print '\nPrinting pT_regResult.genMuObservedError\n', pT_regResult.genMuObservedError
+
+
+            # Draw correlation matrix
+            regularizedCovMatFile = join( regularizedGenMuFitDir, 'COVMATISHERE.root' )
+            regularizedCorrelationMat, regularizedCorrelationMat_byCat, regularizedCovMat = readCorrMatrix( regularizedCovMatFile, nBins, 1, regularizedGenMuObservedError )
+            pT_regResult.drawMatrixInRoot( regularizedCorrelationMat, 'corrMat_GenMuRegularized', title='p_{{T}} correlation matrix after regularization (in gen bins, #tau={0})'.format(tau) )
+
+
 
 
     if do_nJets:
@@ -106,6 +163,7 @@ def main():
         plotdir = 'plots_{0}_nJets'.format(datestr)
 
         nJets_regResult = doSVDMathematics(
+            'nJets',
             nBins,
             nCats,
             Binning,
@@ -118,101 +176,54 @@ def main():
             )
 
 
-    if do_pT_regularized:
+        if do_regularized:
 
-        # ======================================
-        # Get observed genMus
+            nBins   = 5
+            nCats   = 3
+            Binning = [ -0.5, 0.5, 1.5, 2.5, 3.5, 5.5 ]
 
-        nBins   = 7
-        nCats   = 3
-        Binning = [ 0., 15., 30., 45., 85., 125., 200., 300. ]
+            # regularizedGenMuFitDir    = abspath( join( baseDir, 'results_Feb23_pt_moriond17_regularized' ))
+            regularizedGenMuFitDir = abspath(join( baseDir, 'results_Feb24_nJets_moriond17_regularized' ))
 
-        regularizedGenMuFitDir = abspath(join( baseDir, 'results_Feb23_pt_moriond17_regularized' ))
+            regularizedGenMuFitFile   = join( regularizedGenMuFitDir, 'Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod_regularized_postfit.root' )
+            regularizedGenMuFitRootFp = ROOT.TFile.Open( regularizedGenMuFitFile )
+            regularizedGenMuFitW      = regularizedGenMuFitRootFp.Get('w')
+            regularizedGenMuFitW.loadSnapshot('MultiDimFit')
 
-        regularizedGenMuFitFile   = join( regularizedGenMuFitDir, 'Datacard_13TeV_differential_pT_moriond17_regularization_postfit.root' )
-        regularizedGenMuFitRootFp = ROOT.TFile.Open( regularizedGenMuFitFile )
-        regularizedGenMuFitW      = regularizedGenMuFitRootFp.Get('w')
-        regularizedGenMuFitW.loadSnapshot('MultiDimFit')
+            regularizedGenMuObserved      = numpy.zeros( (nBins,1) )
+            regularizedGenMuObservedError = numpy.zeros( (nBins,1) )
+            for iBin in xrange(nBins):
+                r = regularizedGenMuFitW.var( 'r{0}'.format(iBin) )
+                mu    = r.getVal()
+                error = r.getError()
 
-        regularizedGenMuObserved      = numpy.zeros( (nBins,1) )
-        regularizedGenMuObservedError = numpy.zeros( (nBins,1) )
-        for iBin in xrange(nBins):
-            r = regularizedGenMuFitW.var( 'r{0}'.format(iBin) )
-            mu    = r.getVal()
-            error = r.getError()
+                # Simulate a toy
+                # mu = Smear( mu, error )
 
-            # Simulate a toy
-            # mu = Smear( mu, error )
+                # Add to lists
+                regularizedGenMuObserved[iBin] =  mu
+                regularizedGenMuObservedError[iBin] =  error
 
-            # Add to lists
-            regularizedGenMuObserved[iBin] =  mu
-            regularizedGenMuObservedError[iBin] =  error
+            if Verbosity>0: print '\nPrinting regularizedGenMuObserved\n', regularizedGenMuObserved
+            if Verbosity>0: print '\nPrinting regularizedGenMuObservedError\n', regularizedGenMuObservedError
 
-        print '\nPrinting regularizedGenMuObserved\n', regularizedGenMuObserved
-        print '\nPrinting regularizedGenMuObservedError\n', regularizedGenMuObservedError
+            oneOverSqrtTau = regularizedGenMuFitW.var('OneOverSqrtTau').getVal()
+            tau = 1./(oneOverSqrtTau**2)
+            if Verbosity>0: print '1/sqrt(tau) = {0}'.format( oneOverSqrtTau )
 
-        regularizedGenMuFitRootFp.Close()
-
-
-        pT_regResult.compareRegularizedSpectrum( regularizedGenMuObserved, regularizedGenMuObservedError )
-
-        print '\nPrinting pT_regResult.genMuObserved\n', pT_regResult.genMuObserved
-        print '\nPrinting pT_regResult.genMuObservedError\n', pT_regResult.genMuObservedError
+            regularizedGenMuFitRootFp.Close()
 
 
-        # Draw correlation matrix
-        regularizedCovMatFile = join( regularizedGenMuFitDir, 'COVMATISHERE.root' )
-        regularizedCorrelationMat, regularizedCorrelationMat_byCat, regularizedCovMat = readCorrMatrix( regularizedCovMatFile, nBins, 1, regularizedGenMuObservedError )
-        pT_regResult.drawMatrixInRoot( regularizedCorrelationMat, 'corrMat_RegularizedGenMu', title='p_{T} correlation matrix after regularization (in gen bins)' )
+            nJets_regResult.compareRegularizedSpectrum( regularizedGenMuObserved, regularizedGenMuObservedError )
+
+            if Verbosity>0: print '\nPrinting nJets_regResult.genMuObserved\n', nJets_regResult.genMuObserved
+            if Verbosity>0: print '\nPrinting nJets_regResult.genMuObservedError\n', nJets_regResult.genMuObservedError
 
 
-
-
-
-    if do_nJets_regularized:
-
-        nBins   = 5
-        nCats   = 3
-        Binning = [ -0.5, 0.5, 1.5, 2.5, 3.5, 5.5 ]
-
-        # regularizedGenMuFitDir    = abspath( join( baseDir, 'results_Feb23_pt_moriond17_regularized' ))
-        regularizedGenMuFitDir = abspath(join( baseDir, 'results_Feb23_nJets_moriond17_regularized' ))
-
-        regularizedGenMuFitFile   = join( regularizedGenMuFitDir, 'Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod_regularized_postfit.root' )
-        regularizedGenMuFitRootFp = ROOT.TFile.Open( regularizedGenMuFitFile )
-        regularizedGenMuFitW      = regularizedGenMuFitRootFp.Get('w')
-        regularizedGenMuFitW.loadSnapshot('MultiDimFit')
-
-        regularizedGenMuObserved      = numpy.zeros( (nBins,1) )
-        regularizedGenMuObservedError = numpy.zeros( (nBins,1) )
-        for iBin in xrange(nBins):
-            r = regularizedGenMuFitW.var( 'r{0}'.format(iBin) )
-            mu    = r.getVal()
-            error = r.getError()
-
-            # Simulate a toy
-            # mu = Smear( mu, error )
-
-            # Add to lists
-            regularizedGenMuObserved[iBin] =  mu
-            regularizedGenMuObservedError[iBin] =  error
-
-        print '\nPrinting regularizedGenMuObserved\n', regularizedGenMuObserved
-        print '\nPrinting regularizedGenMuObservedError\n', regularizedGenMuObservedError
-
-        regularizedGenMuFitRootFp.Close()
-
-
-        nJets_regResult.compareRegularizedSpectrum( regularizedGenMuObserved, regularizedGenMuObservedError )
-
-        print '\nPrinting nJets_regResult.genMuObserved\n', nJets_regResult.genMuObserved
-        print '\nPrinting nJets_regResult.genMuObservedError\n', nJets_regResult.genMuObservedError
-
-
-        # Draw correlation matrix
-        regularizedCovMatFile = join( regularizedGenMuFitDir, 'COVMATISHERE.root' )
-        regularizedCorrelationMat, regularizedCorrelationMat_byCat, regularizedCovMat = readCorrMatrix( regularizedCovMatFile, nBins, 1, regularizedGenMuObservedError )
-        nJets_regResult.drawMatrixInRoot( regularizedCorrelationMat, 'corrMat_RegularizedGenMu', title='nJets correlation matrix after regularization (in gen bins)' )
+            # Draw correlation matrix
+            regularizedCovMatFile = join( regularizedGenMuFitDir, 'COVMATISHERE.root' )
+            regularizedCorrelationMat, regularizedCorrelationMat_byCat, regularizedCovMat = readCorrMatrix( regularizedCovMatFile, nBins, 1, regularizedGenMuObservedError )
+            nJets_regResult.drawMatrixInRoot( regularizedCorrelationMat, 'corrMat_GenMuRegularized', title='nJets correlation matrix after regularization (in gen bins, #tau={0})'.format(tau) )
 
 
 
@@ -225,6 +236,7 @@ def main():
 
 
 def doSVDMathematics(
+    name,
     nBins,
     nCats,
     Binning,
@@ -234,6 +246,8 @@ def doSVDMathematics(
     recoCovMatRootFile,
     genCovMatRootFile,
     plotdir,
+    seed=123,
+    makePlots=True,
     ):
 
     # baseDir = abspath( join( os.environ['CMSSW_BASE'], 'src' ))
@@ -278,8 +292,8 @@ def doSVDMathematics(
         genMuObserved[iBin] =  mu
         genMuObservedError[iBin] =  error
 
-    print '\nPrinting genMuObserved\n', genMuObserved
-    print '\nPrinting genMuObservedError\n', genMuObservedError
+    if Verbosity>0:     print '\nPrinting genMuObserved\n', genMuObserved
+    if Verbosity>0: print '\nPrinting genMuObservedError\n', genMuObservedError
 
     genMuFitRootFp.Close()
 
@@ -292,7 +306,9 @@ def doSVDMathematics(
     recoMuFitW      = recoMuFitRootFp.Get('w')
     recoMuFitW.loadSnapshot('MultiDimFit')
 
-    random.seed(123)
+    random.seed(123) # Default seed
+
+    random.seed(seed)
     Smear = lambda x, err: x + random.gauss( 0, err )
 
     recoMuObserved      = numpy.zeros( ( nCats, nBins ) )
@@ -314,8 +330,8 @@ def doSVDMathematics(
     recoMuObserved = recoMuObserved.reshape(nBins*nCats,1)
     recoMuObservedError = recoMuObservedError.reshape(nBins*nCats,1)
 
-    print '\nPrinting recoMuObserved\n', recoMuObserved
-    print '\nPrinting recoMuObservedError\n', recoMuObservedError
+    if Verbosity>0: print '\nPrinting recoMuObserved\n', recoMuObserved
+    if Verbosity>0: print '\nPrinting recoMuObservedError\n', recoMuObservedError
 
     recoMuFitRootFp.Close()
 
@@ -324,10 +340,10 @@ def doSVDMathematics(
     # Get response matrix (A)
 
     # eff = 1./(nCats) * numpy.array([ numpy.identity(nBins).ravel() for iCat in xrange(nCats) ]).reshape( nCats*nBins, nBins )
-    # print '\nPrinting eff\n', eff
+    # if Verbosity>0: print '\nPrinting eff\n', eff
 
     # acceptance = 1./nBins * numpy.ones((nBins,1))
-    # print '\nPrinting acceptance\n', acceptance
+    # if Verbosity>0: print '\nPrinting acceptance\n', acceptance
 
 
     eff_times_acceptance = numpy.transpose(numpy.genfromtxt( responseMatrixTxtFile ))
@@ -336,7 +352,7 @@ def doSVDMathematics(
     eff_times_acceptance = eff_times_acceptance[:-1]
 
     numpy.set_printoptions( precision=2 )
-    print '\nPrinting eff_times_acceptance\n', eff_times_acceptance
+    if Verbosity>0: print '\nPrinting eff_times_acceptance\n', eff_times_acceptance
     numpy.set_printoptions( precision=5 )
 
 
@@ -350,7 +366,7 @@ def doSVDMathematics(
     x = genMuObserved
 
     summed_eff_times_acceptance = numpy.sum( eff_times_acceptance, axis=1 )
-    print '\nPrinting summed_eff_times_acceptance\n', summed_eff_times_acceptance
+    if Verbosity>0: print '\nPrinting summed_eff_times_acceptance\n', summed_eff_times_acceptance
 
     # element-wise product keeps failing, doing manually:
     b = numpy.zeros((nBins*nCats,1))
@@ -359,12 +375,12 @@ def doSVDMathematics(
             iBinReco =  iCat*nBins + iBin 
             b[iBinReco] = recoMuObserved[iBinReco] * summed_eff_times_acceptance[iBinReco]
 
-    print '\nPrinting A\n', A
-    print '\nPrinting x\n', x
-    print '\nPrinting b\n', b
+    if Verbosity>0: print '\nPrinting A\n', A
+    if Verbosity>0: print '\nPrinting x\n', x
+    if Verbosity>0: print '\nPrinting b\n', b
     
     Ax = A.dot(x)
-    print '\nPrinting Ax\n', Ax
+    if Verbosity>0: print '\nPrinting Ax\n', Ax
 
 
 
@@ -377,6 +393,8 @@ def doSVDMathematics(
 
     correlationMat, correlationMat_byCat, covMat = readCorrMatrix( recoCovMatRootFile, nBins, nCats, recoMuObservedError )
     genCorrelationMat, genCorrelationMat_byCat, genCovMat = readCorrMatrix( genCovMatRootFile, nBins, 1, genMuObservedError )
+
+    if Verbosity>0: print '\nPrinting correlationMat\n', correlationMat
 
     # # covmatRootFile = join( recoMuFitDir, 'COVMATISHERE.root' )
     # covmatRootFp   = ROOT.TFile.Open( covmatRootFile )
@@ -412,9 +430,9 @@ def doSVDMathematics(
     # # for i in xrange(1,nBins-1):
     # #     correlationMat[i] = [ 0. for j in xrange(0,i-1) ] + [ smearing, 1.-2*smearing, smearing ] + [ 0. for j in xrange(i+2,nBins) ]
 
-    # print '\nPrinting correlationMat\n', correlationMat
-    # # print '\nPrinting correlationMat (by category)\n', correlationMat_byCat
-    # print '\nPrinting covMat\n', covMat
+    # if Verbosity>0: print '\nPrinting correlationMat\n', correlationMat
+    # if Verbosity>0: print '\nPrinting correlationMat (by category)\n', correlationMat_byCat
+    # if Verbosity>0: print '\nPrinting covMat\n', covMat
 
 
     # ======================================
@@ -434,12 +452,12 @@ def doSVDMathematics(
     R = numpy.diag( R.ravel() )
 
 
-    print '\nPrinting Q\n', Q
-    # print '\nPrinting Q_same\n', Q_same
-    print '\nPrinting R\n', R
+    if Verbosity>0: print '\nPrinting Q\n', Q
+    # if Verbosity>0: print '\nPrinting Q_same\n', Q_same
+    if Verbosity>0: print '\nPrinting R\n', R
 
     should_be_zero = (Q.dot(R)).dot( numpy.transpose(Q) ) - covMat
-    print '\nPrinting should_be_zero\n', should_be_zero
+    # if Verbosity>0: print '\nPrinting should_be_zero\n', should_be_zero
 
 
     ########################################
@@ -448,7 +466,7 @@ def doSVDMathematics(
 
     chapter( 'Computing Atilde and btilde' )
 
-    Atilde = numpy.zeros((nBins*nCats, nBins*nCats))
+    Atilde = numpy.zeros((nBins*nCats, nBins))
     btilde = numpy.zeros((nBins*nCats, 1))
 
     for iCat in xrange(nCats):
@@ -468,29 +486,53 @@ def doSVDMathematics(
                 )
 
 
-    print '\nPrinting Atilde\n', Atilde
+    if Verbosity>0: print '\nPrinting Atilde\n', Atilde
 
     numpy.set_printoptions( precision=5 )
-    print '\nPrinting btilde\n', btilde
+    if Verbosity>0: print '\nPrinting btilde\n', btilde
 
 
     # Define C (second derivative matrix)
-    C = [ [ 0 for i in xrange(nBins*nCats) ] for j in xrange(nBins*nCats) ]
-    C[0]  = [ -1., 1. ] + [ 0. for i in xrange(nBins*nCats-2) ]
-    C[-1] = [ 0. for i in xrange(nBins*nCats-2) ] + [ 1., -1. ]
-    for i in xrange(1,nBins*nCats-1):
-        C[i] = [ 0. for j in xrange(0,i-1) ] + [ 1., -2., 1. ] + [ 0. for j in xrange(i+2,nBins*nCats) ]
+    C = [ [ 0 for i in xrange(nBins) ] for j in xrange(nBins) ]
+    C[0]  = [ -1., 1. ] + [ 0. for i in xrange(nBins-2) ]
+    C[-1] = [ 0. for i in xrange(nBins-2) ] + [ 1., -1. ]
+    for i in xrange(1,nBins-1):
+        C[i] = [ 0. for j in xrange(0,i-1) ] + [ 1., -2., 1. ] + [ 0. for j in xrange(i+2,nBins) ]
 
     # Add small non-zero component
-    for i in xrange(nBins*nCats):
+    for i in xrange(nBins):
         C[i][i] += 0.0001
 
     C = numpy.array(C)
-    print '\nPrinting C\n', C    
+    if Verbosity>0: print '\nPrinting C\n', C    
+
+
+    decomposeC = False
+    if decomposeC:
+
+        decompCObject = ROOT.TDecompSVD( numpy_to_TMatrix(C) )
+        decompCObject.Decompose()
+
+        QC_TMat      = decompCObject.GetU()
+        QC_same_TMat = decompCObject.GetV() # Should be exactly the same as Q
+        SC_TMat      = decompCObject.GetSig()
+
+        QC      = TMatrix_to_numpy( QC_TMat )
+        QC_same = TMatrix_to_numpy( QC_same_TMat )
+        SC      = TMatrix_to_numpy( SC_TMat )
+
+        SC = numpy.diag( R.ravel() )
+
+
+        numpy.set_printoptions( precision=1, linewidth=170 )
+        if Verbosity>0: print '\nPrinting QC\n', QC
+        if Verbosity>0: print '\nPrinting QC_same\n', QC_same
+        if Verbosity>0: print '\nPrinting SC\n', SC
+        numpy.set_printoptions( precision=5, linewidth=100 )
 
 
     Atilde_times_Cinv = Atilde.dot( numpy.linalg.inv(C) )
-    print '\nPrinting Atilde_times_Cinv\n', Atilde_times_Cinv        
+    if Verbosity>0: print '\nPrinting Atilde_times_Cinv\n', Atilde_times_Cinv        
 
 
     # ======================================
@@ -502,22 +544,30 @@ def doSVDMathematics(
     decompTildeObject.Decompose()
 
     U_TMat = decompTildeObject.GetU()
-    V_TMat = decompTildeObject.GetV() # Should be exactly the same as Q
+    V_TMat = decompTildeObject.GetV()
     S_TMat = decompTildeObject.GetSig()
 
-    U = TMatrix_to_numpy( U_TMat )
-    V = TMatrix_to_numpy( V_TMat )
-    S = TMatrix_to_numpy( S_TMat )
+    U                  = TMatrix_to_numpy( U_TMat )
+    V                  = TMatrix_to_numpy( V_TMat )
+    S_diagonalElements = TMatrix_to_numpy( S_TMat )
 
-    S = numpy.diag( S.ravel() )
+    S = numpy.zeros( ( nBins*nCats, nBins ) )
+    for iBin in xrange(nBins):
+        S[iBin][iBin] = S_diagonalElements[iBin]
+    # S = numpy.diag( S.ravel() )
 
-    print '\nPrinting U\n', U
-    print '\nPrinting V\n', V
-    print '\nPrinting S\n', S
+
+    if Verbosity>0: print '\nPrinting U\n', U
+    if Verbosity>0: print '\nPrinting V\n', V
+    if Verbosity>0: print '\nPrinting S\n', S
+
+
+    AtildeCin_SVDtest = ( U.dot(S) ).dot( numpy.transpose(V) ) - Atilde_times_Cinv
+    if Verbosity>0: print '\nPrinting AtildeCin_SVDtest\n', AtildeCin_SVDtest
 
 
     d = numpy.abs( numpy.transpose(U).dot(btilde) )
-    print '\nPrinting d\n', d
+    if Verbosity>0: print '\nPrinting d\n', d
 
 
     ########################################
@@ -587,14 +637,14 @@ def doSVDMathematics(
     # print muUnfolded
 
 
-    ########################################
-    # C times mu
-    ########################################
+    # ########################################
+    # # C times mu
+    # ########################################
 
-    C_times_muRecoObserved = C.dot( recoMuObserved )
-    squarednorm_C_times_muRecoObserved = ( numpy.linalg.norm( C_times_muRecoObserved ) )**2
+    # C_times_muRecoObserved = C.dot( recoMuObserved )
+    # squarednorm_C_times_muRecoObserved = ( numpy.linalg.norm( C_times_muRecoObserved ) )**2
 
-    print '\nPrinting squarednorm_C_times_muRecoObserved\n', squarednorm_C_times_muRecoObserved
+    # if Verbosity>0: print '\nPrinting squarednorm_C_times_muRecoObserved\n', squarednorm_C_times_muRecoObserved
 
 
     ########################################
@@ -612,6 +662,7 @@ def doSVDMathematics(
     # regResult.genMuFitFile                = genMuFitFile
     # regResult.recoMuFitDir                = recoMuFitDir
     # regResult.recoMuFitFile               = recoMuFitFile
+    regResult.name                        = name
     regResult.nBins                       = nBins
     regResult.nCats                       = nCats
     regResult.Binning                     = Binning
@@ -644,15 +695,24 @@ def doSVDMathematics(
     regResult.S                           = S
     regResult.d                           = d
 
-    regResult.plot_d()
-    regResult.plot_spectra()
-    # regResult.drawCorrMatrix()
 
-    regResult.drawMatrixInRoot( S, 'S' )
+    if name == 'pt':
+        regResult.label = 'p_{T} [GeV]'
+    else:
+        regResult.label = 'nJets'
 
-    regResult.drawMatrixInRoot( regResult.correlationMat, 'corrMat_RecoMu', overlayCatLines=True, title='correlation matrix (in reco bins)' )
-    # regResult.drawMatrixInRoot( regResult.correlationMat_byCat, 'corrMat_RecoMu_ByCat' )
-    regResult.drawMatrixInRoot( regResult.genCorrelationMat, 'corrMat_GenMu', title='correlation matrix (in gen bins)' )
+
+    if makePlots:
+
+        regResult.plot_d()
+        regResult.plot_spectra()
+        # regResult.drawCorrMatrix()
+
+        regResult.drawMatrixInRoot( S, 'S' )
+
+        regResult.drawMatrixInRoot( regResult.correlationMat, 'corrMat_RecoMu', overlayCatLines=True, title='{0} correlation matrix (in reco bins)'.format(regResult.label) )
+        # regResult.drawMatrixInRoot( regResult.correlationMat_byCat, 'corrMat_RecoMu_ByCat' )
+        regResult.drawMatrixInRoot( regResult.genCorrelationMat, 'corrMat_GenMu', title='{0} correlation matrix (in gen bins)'.format(regResult.label) )
 
 
     return regResult
@@ -707,11 +767,11 @@ def readCorrMatrix( covmatRootFile, nBins, nCats=1, observedErrors=[] ):
     # for i in xrange(1,nBins-1):
     #     correlationMat[i] = [ 0. for j in xrange(0,i-1) ] + [ smearing, 1.-2*smearing, smearing ] + [ 0. for j in xrange(i+2,nBins) ]
 
-    print '\nPrinting correlationMat\n', correlationMat
-    # print '\nPrinting correlationMat (by category)\n', correlationMat_byCat
+    # if Verbosity>0: print '\nPrinting correlationMat\n', correlationMat
+    # if Verbosity>0: print '\nPrinting correlationMat (by category)\n', correlationMat_byCat
     
     if len(observedErrors) > 0:
-        print '\nPrinting covMat\n', covMat
+        # if Verbosity>0: print '\nPrinting covMat\n', covMat
         return correlationMat, correlationMat_byCat, covMat
     else:
         return correlationMat, correlationMat_byCat
@@ -723,9 +783,9 @@ def readCorrMatrix( covmatRootFile, nBins, nCats=1, observedErrors=[] ):
 
 
 def chapter( text ):
-    print '\n\n=================================================='
-    print text
-    print
+    if Verbosity>0: print '\n\n=================================================='
+    if Verbosity>0: print text
+    if Verbosity>0: print
 
 
 
