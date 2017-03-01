@@ -248,7 +248,12 @@ def doSVDMathematics(
     plotdir,
     seed=123,
     makePlots=True,
+    forceVerbosity=False,
     ):
+
+    if forceVerbosity:
+        global Verbosity
+        Verbosity = 1
 
     # baseDir = abspath( join( os.environ['CMSSW_BASE'], 'src' ))
     # dcDir   =  join( baseDir, 'pt_moriond17' )
@@ -713,6 +718,8 @@ def doSVDMathematics(
         regResult.drawMatrixInRoot( regResult.correlationMat, 'corrMat_RecoMu', overlayCatLines=True, title='{0} correlation matrix (in reco bins)'.format(regResult.label) )
         # regResult.drawMatrixInRoot( regResult.correlationMat_byCat, 'corrMat_RecoMu_ByCat' )
         regResult.drawMatrixInRoot( regResult.genCorrelationMat, 'corrMat_GenMu', title='{0} correlation matrix (in gen bins)'.format(regResult.label) )
+
+        regResult.drawMatrixInRoot( regResult.eff_times_acceptance, 'responseMatrix', title='Response matrix' )
 
 
     return regResult
