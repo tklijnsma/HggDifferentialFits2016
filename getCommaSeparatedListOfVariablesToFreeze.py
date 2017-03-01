@@ -11,20 +11,28 @@ import os
 import argparse
 import ROOT
 
+DEBUG = False
+
+
 ########################################
 # Main
 ########################################
 
 def main():
 
-    DEBUG = False
-    
     parser = argparse.ArgumentParser()
     parser.add_argument( 'wsFile', type=str, default='default', help='default string' )
     # parser.add_argument( '--boolean', action='store_true', help='boolean')
     # parser.add_argument( '--list', metavar='N', type=str, nargs='+', help='list of strings' )
     args = parser.parse_args()
     wsFile = args.wsFile
+
+    print getCommaSeparatedListOfVariablesToFreeze( wsFile )
+
+
+
+
+def getCommaSeparatedListOfVariablesToFreeze( wsFile ):
 
 
     if not os.path.isfile( wsFile ):
@@ -80,14 +88,16 @@ def main():
     # For some reason, the first variable is never frozen; simply append it again at end of list
     varsToFreeze.append( varsToFreeze[0] )
 
+
     if DEBUG:
         print '\n\nFreezing the following variables:'
         for i in varsToFreeze:
             print i
-    else:
-        print ','.join(varsToFreeze)
 
     wsFp.Close()
+
+    return ','.join(varsToFreeze)
+
 
 
 
