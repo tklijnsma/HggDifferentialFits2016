@@ -40,46 +40,71 @@ else
 fi
 
 
+function chapter {
+    echo
+    echo "----------------------------"
+    echo "---------------------------- $1"
+    echo "----------------------------"
+    echo 
+}
+
 ########################################
 # Specify what to do
 ########################################
 
 NTOYS=-1
 
-SQRT_TAU=1.0
-TAU=$(echo "scale=6;($SQRT_TAU)^2" | bc)
-ONE_OVER_SQRT_TAU=$(echo "scale=6;1./$SQRT_TAU" | bc)
-
-
-# ======================================
-# Makes a list of the physics model parameters ( "r0=1,r1=1," etc.)
-
-
 NBINS=7
 NCATS=3
 
-do_pT=false
-# do_nJets=false
-
+do_pT=true
 do_recoFit=false
 do_regularization=true
 
 
 # Select the appropriate datacard
 
-if [ "$do_regularization" = false ] ; then
-    if [ "$do_pT" = true ]; then
+# if [ "$do_regularization" = false ] ; then
+#     if [ "$do_pT" = true ]; then
+#         DC="Datacard_13TeV_differential_pT_moriond17.txt"
+#     else
+#         DC="Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod.txt"
+#     fi
+# else
+#     if [ "$do_pT" = true ]; then
+#         DC="Datacard_13TeV_differential_pT_moriond17_regularization.txt"
+#     else
+#         DC="Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod_regularized.txt"
+#     fi
+# fi
+
+
+if [ "$do_pT" = true ]; then
+
+    if [ "$do_regularization" = false ] ; then
         DC="Datacard_13TeV_differential_pT_moriond17.txt"
     else
-        DC="Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod.txt"
-    fi
-else
-    if [ "$do_pT" = true ]; then
         DC="Datacard_13TeV_differential_pT_moriond17_regularization.txt"
+    fi
+
+    SQRT_TAU=0.035
+
+else
+
+    if [ "$do_regularization" = false ] ; then
+        DC="Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod.txt"
     else
         DC="Datacard_13TeV_differential_Njets_moriond17_skipAndDebug_reminiaod_regularized.txt"
     fi
+
+    SQRT_TAU=0.78
+
 fi
+
+TAU=$(echo "scale=6;($SQRT_TAU)^2" | bc)
+ONE_OVER_SQRT_TAU=$(echo "scale=6;1./$SQRT_TAU" | bc)
+
+
 
 
 # Make a list of physics model parameters and set output names for the T2W rootfile and the postfit rootfile
@@ -87,11 +112,11 @@ fi
 if [ "$do_recoFit" = true ] ; then
     PHYSICSMODELPARAMETERS=$( python $CMSSW_BASE/src/scripts/getPhysicsModelParameterStrings.py $NBINS $NCATS )
     DCroot="${DC%.txt}_recoMuFit.root"
-    DCrootpostfit="${DC%.txt}_postfit_recoMuFit.root"
+    DCrootpostfit="${DC%.txt}_recoMuFit_postfit.root"
 else
     PHYSICSMODELPARAMETERS=$( python $CMSSW_BASE/src/scripts/getPhysicsModelParameterStrings.py $NBINS )
-    DCroot="${DC%.txt}.root"
-    DCrootpostfit="${DC%.txt}_postfit.root"
+    DCroot="${DC%.txt}_genMuFit.root"
+    DCrootpostfit="${DC%.txt}_genMuFit_postfit.root"
 fi
 
 
@@ -275,17 +300,3 @@ fi
 cd -
 
 
-
-
-
-
-
-
-# Functions
-function chapter {
-    echo
-    echo "----------------------------"
-    echo "---------------------------- $1"
-    echo "----------------------------"
-    echo 
-}
